@@ -1,0 +1,47 @@
+Nombre: Tomás Lottersberger
+Mail: tlottersberger@udesa.edu.ar
+Bomba: 34
+
+**Fase 1**:
+Al desensamblar la función "phase_1" se ve que lo primero que hace es cargar en rsi la dirección de una cadena constante 
+y luego llamar a strings_not_equal(rdi, rsi). Esto indicó que bastaba con extraer esa cadena de la sección de datos y 
+usarla como primer input. Con GDB coloqué un breakpoint justo antes de la llamada, miré en memoria con x/s, y se 
+obtuvo: "La ingratitud es hija de la soberbia.". Ese fue exactamente el sting que se colocó en la primera línea de 
+input.txt, lo que permitió pasar la fase 1 sin detonar la bomba.
+
+**Fase 2**:
+En "phase_2" se ven dos llamadas a "strtol", lo que significa que se necesitan dos enteros. Luego, el código multiplica esos 
+valores y exige que el producto no sea cero, suma ambos y comprueba que esa suma sea igual a una constante fija, por último 
+llama a misterio para asegurarse de que el XOR de ambos dé un resultado negativo.
+Con GDB se analizó los puntos donde strtol devolvía n1 y n2, donde estos últimos debían ser constantes distintas de cero.
+Además, n1 XOR n2 tenía que cumplir que tenga el bit de signo a 1. Probando distintos pares se llegó a que la respuesta 
+viene dada por los enteros 43994 y -1.
+
+**Fase 3**:
+Aquí "phase_3" hace un sscanf(buf, "%s %d %s"), luego llama a "readlines" para cargar en memoria todas las palabras de palabras.txt 
+y, por último, invoca la función "cuenta" para hacer una búsqueda binaria recursiva contando cuántas llamadas realiza. Al 
+final compara ese contador con el segundo input y además, en "phase_defused", exige que el tercer token coincida con la 
+contraseña secreta. El proceso de razonamiento fue concluir que, debido al sscanf se necesita un string, un entero y otro string.
+Se siguó la recursión de la función "cuenta" con GDB, probando distintas palabras hasta encontrar una que devolviera 7 llamadas, 
+esa palabra fue "aboquillar". COMPLETAR ABRETE_SESAMO
+
+**Fase 4**:
+En "phase_4" se vuelve a usar sscanf(buf, "%d %d"). El primer número se reduce módulo 16 y se usa como índice inicial en un 
+array de 16 enteros. Luego, en un bucle, se lee v = array[index], se acumula suma += v, y si v≠15 se repite con index = v; 
+si v==15 sale. Finalmente comprueba que el número de iteraciones sea exactamente 3 y que la suma coincida con el segundo input. 
+Para resolverlo volcamos el array en GDB con $x/16dw dirección; donde nos aparecen 16 números, realizamos un script de python
+(el cual se encuentra en el folder como phase4_defuse.py) el cual itera por los 16 números y devuelve el índice en donde se 
+encuentra el número 15. Finalmente se llegó a que tardaba 3 iteraciones en llegar al 15 y la suma acumulada era igual a 59.
+
+**Fase Secreta**:
+Después de la cuarta fase, "phase_defused" invoca "secret_phase", que lee un solo entero value, comprueba 1 <= value <= 1001 y 
+luego llama a fun7(&n1, value), donde n1 es la raíz de un árbol binario, y exige que el valor de retorno sea exactamente 4. 
+
+La función fun7 codifica cada paso en el árbol así:
+- Si el valor buscado es menor que el nodo, baja por la izquierda y hace eax = 2*eax.
+- Si es mayor, baja por la derecha y hace eax = 2*eax + 1.
+- Si lo encuentra, retorna 0; si llega a un nodo nulo, retorna –1.
+
+Para que el resultado final sea 4, había que recorrer el árbol siguiendo el patrón izquierda -> izquierda -> derecha.
+Finalmente, el valor del nodo hoja resultó ser 7, y al llamar a call (int) fun7((void*)0x4f91f0, 7) se obtuvo que $1 = 4,
+verificando entonces que 7 es el valor esperado del nodo hoja.
